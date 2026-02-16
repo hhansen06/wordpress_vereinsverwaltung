@@ -19,14 +19,9 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       
-      - name: Create plugin directory structure
-        run: |
-          mkdir -p h2-vereinsverwaltung
-          cp -r * h2-vereinsverwaltung     
-          
       - name: Create ZIP file
         run: |
-          zip -r h2-vereinsverwaltung-${{ steps.version.outputs.VERSION }}.zip h2-vereinsverwaltung/
+          zip -r h2-vereinsverwaltung-${{ steps.version.outputs.VERSION }}.zip *
       
       - name: Upload Release Asset
         env:
