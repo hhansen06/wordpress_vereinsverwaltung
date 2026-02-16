@@ -22,7 +22,7 @@ jobs:
       - name: Create plugin directory structure
         run: |
           mkdir -p h2-vereinsverwaltung
-          cp * h2-vereinsverwaltung     
+          cp -r * h2-vereinsverwaltung     
           
       - name: Create ZIP file
         run: |
