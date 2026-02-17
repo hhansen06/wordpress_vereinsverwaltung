@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Vereinsverwaltung
  * Description: Verwaltung von Sparten, Ansprechpartnern und Terminen im Einstellungsbereich.
- * Version: 1.0.0
- * Author: Custom
+ * Version: 1.0.1
+ * Author: Henrik Hansen
  */
 
 if (!defined('ABSPATH')) {
