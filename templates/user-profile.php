@@ -151,11 +151,10 @@ get_header();
             <table class="vv-user-results">
                 <thead>
                     <tr>
+                        <th>Platzierung</th>
                         <th>Veranstaltung</th>
                         <th>Ort</th>
                         <th>Datum</th>
-                        <th>Platzierung</th>
-                        <th>Teilnehmer</th>
                         <th>Klasse</th>
                     </tr>
                 </thead>
@@ -172,11 +171,10 @@ get_header();
                         }
                         ?>
                         <tr>
+                            <td><?php echo esc_html($entry['platzierung'] ?? ''); ?></td>
                             <td><?php echo esc_html($entry['veranstaltung'] ?? ''); ?></td>
                             <td><?php echo esc_html($entry['ort'] ?? ''); ?></td>
                             <td><?php echo esc_html($formatted_date); ?></td>
-                            <td><?php echo esc_html($entry['platzierung'] ?? ''); ?></td>
-                            <td><?php echo esc_html($entry['teilnehmer'] ?? ''); ?></td>
                             <td><?php echo esc_html($entry['klasse_label'] ?? ''); ?></td>
                         </tr>
                     <?php endforeach; ?>
