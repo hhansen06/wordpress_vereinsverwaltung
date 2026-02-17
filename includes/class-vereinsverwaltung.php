@@ -821,10 +821,19 @@ final class Vereinsverwaltung_Plugin
 
         $current_user = wp_get_current_user();
         $is_abonent = in_array('abonennten', (array) $current_user->roles, true);
+        $can_assign_user = current_user_can('manage_options') || in_array('author', (array) $current_user->roles, true);
         $klassen = $this->get_klassen();
         $ergebnisse = $this->get_ergebnisse();
         $edit_id = isset($_GET['edit_ergebnis']) ? sanitize_text_field(wp_unslash($_GET['edit_ergebnis'])) : '';
         $edit_ergebnis = null;
+        $users = [];
+
+        if ($can_assign_user) {
+            $users = get_users(['fields' => ['ID', 'display_name']]);
+            usort($users, function ($a, $b) {
+                return strcasecmp($a->display_name ?? '', $b->display_name ?? '');
+            });
+        }
 
         if ($is_abonent) {
             $ergebnisse = array_values(array_filter($ergebnisse, function ($entry) use ($current_user) {
@@ -861,6 +870,21 @@ final class Vereinsverwaltung_Plugin
                 }
                 ?>
                 <table class="form-table" role="presentation">
+                    <?php if ($can_assign_user): ?>
+                        <tr>
+                            <th scope="row"><label for="vv_ergebnis_user">Benutzer</label></th>
+                            <td>
+                                <select name="user_id" id="vv_ergebnis_user" class="regular-text" required>
+                                    <option value="">Bitte wählen</option>
+                                    <?php foreach ($users as $user): ?>
+                                        <option value="<?php echo esc_attr($user->ID); ?>" <?php selected($edit_ergebnis['user_id'] ?? $current_user->ID, $user->ID); ?>>
+                                            <?php echo esc_html($user->display_name); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
                     <tr>
                         <th scope="row"><label for="vv_ergebnis_veranstaltung">Name der Veranstaltung</label></th>
                         <td><input name="veranstaltung" id="vv_ergebnis_veranstaltung" type="text" class="regular-text" required
@@ -1342,15 +1366,23 @@ final class Vereinsverwaltung_Plugin
 
         $current_user = wp_get_current_user();
         $is_abonent = in_array('abonennten', (array) $current_user->roles, true);
+        $can_assign_user = current_user_can('manage_options') || in_array('author', (array) $current_user->roles, true);
 
         $veranstaltung = isset($_POST['veranstaltung']) ? sanitize_text_field(wp_unslash($_POST['veranstaltung'])) : '';
         $ort = isset($_POST['ort']) ? sanitize_text_field(wp_unslash($_POST['ort'])) : '';
         $datum = isset($_POST['datum']) ? sanitize_text_field(wp_unslash($_POST['datum'])) : '';
         $platzierung = isset($_POST['platzierung']) ? (int) $_POST['platzierung'] : 0;
         $teilnehmer = isset($_POST['teilnehmer']) ? (int) $_POST['teilnehmer'] : 0;
-        $klasse_id = (string) get_user_meta($current_user->ID, self::META_USER_KLASSE, true);
 
-        if (!$veranstaltung || !$ort || !$datum || $platzierung < 1 || $teilnehmer < 1 || !$klasse_id) {
+        $target_user_id = $current_user->ID;
+        if ($can_assign_user && !empty($_POST['user_id'])) {
+            $target_user_id = (int) $_POST['user_id'];
+        }
+
+        $target_user = get_user_by('id', $target_user_id);
+        $klasse_id = $target_user ? (string) get_user_meta($target_user_id, self::META_USER_KLASSE, true) : '';
+
+        if (!$target_user || !$veranstaltung || !$ort || !$datum || $platzierung < 1 || $teilnehmer < 1 || !$klasse_id) {
             $this->redirect_back();
         }
 
@@ -1370,8 +1402,8 @@ final class Vereinsverwaltung_Plugin
         $ergebnisse = $this->get_ergebnisse();
         $ergebnisse[] = [
             'id' => uniqid('erg_', true),
-            'user_id' => (int) $current_user->ID,
-            'user_label' => $current_user->display_name,
+            'user_id' => (int) $target_user_id,
+            'user_label' => $target_user->display_name,
             'veranstaltung' => $veranstaltung,
             'ort' => $ort,
             'datum' => $datum,
@@ -1396,15 +1428,23 @@ final class Vereinsverwaltung_Plugin
 
         $current_user = wp_get_current_user();
         $is_abonent = in_array('abonennten', (array) $current_user->roles, true);
+        $can_assign_user = current_user_can('manage_options') || in_array('author', (array) $current_user->roles, true);
 
         $veranstaltung = isset($_POST['veranstaltung']) ? sanitize_text_field(wp_unslash($_POST['veranstaltung'])) : '';
         $ort = isset($_POST['ort']) ? sanitize_text_field(wp_unslash($_POST['ort'])) : '';
         $datum = isset($_POST['datum']) ? sanitize_text_field(wp_unslash($_POST['datum'])) : '';
         $platzierung = isset($_POST['platzierung']) ? (int) $_POST['platzierung'] : 0;
         $teilnehmer = isset($_POST['teilnehmer']) ? (int) $_POST['teilnehmer'] : 0;
-        $klasse_id = (string) get_user_meta($current_user->ID, self::META_USER_KLASSE, true);
 
-        if (!$id || !$veranstaltung || !$ort || !$datum || $platzierung < 1 || $teilnehmer < 1 || !$klasse_id) {
+        $target_user_id = $current_user->ID;
+        if ($can_assign_user && !empty($_POST['user_id'])) {
+            $target_user_id = (int) $_POST['user_id'];
+        }
+
+        $target_user = get_user_by('id', $target_user_id);
+        $klasse_id = $target_user ? (string) get_user_meta($target_user_id, self::META_USER_KLASSE, true) : '';
+
+        if (!$target_user || !$id || !$veranstaltung || !$ort || !$datum || $platzierung < 1 || $teilnehmer < 1 || !$klasse_id) {
             $this->redirect_back();
         }
 
@@ -1433,6 +1473,10 @@ final class Vereinsverwaltung_Plugin
                 $entry['datum'] = $datum;
                 $entry['platzierung'] = $platzierung;
                 $entry['teilnehmer'] = $teilnehmer;
+                if ($can_assign_user) {
+                    $entry['user_id'] = (int) $target_user_id;
+                    $entry['user_label'] = $target_user->display_name;
+                }
                 $entry['klasse_id'] = $klasse_id;
                 $entry['klasse_label'] = $klasse_label;
                 break;
@@ -1677,6 +1721,12 @@ final class Vereinsverwaltung_Plugin
             .vv-ap-role { color: #6b7280; margin: 0; font-size: 0.95em; }
             .vv-ap-email, .vv-ap-phone, .vv-ap-address { color: #374151; margin: 0; font-size: 0.95em; }
             @media (max-width: 900px) { .vv-ansprechpartner-grid { grid-template-columns: 1fr; } }
+            @media (max-width: 720px) {
+                .vv-ansprechpartner-card { grid-template-columns: 1fr; text-align: center; }
+                .vv-ap-avatar { justify-self: center; }
+                .vv-ap-body { grid-template-columns: 1fr; text-align: center; }
+                .vv-ap-col { justify-items: center; }
+            }
             @media (max-width: 640px) { .vv-ansprechpartner-grid { grid-template-columns: 1fr; } }
             .vv-buehne-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
             .vv-buehne-card { display: grid; justify-items: center; gap: 8px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; text-decoration: none; }
