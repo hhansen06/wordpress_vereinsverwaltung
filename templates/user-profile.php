@@ -4,7 +4,18 @@ if (!defined('ABSPATH')) {
 }
 
 $slug = (string) get_query_var('vv_user_profile');
-$user = $slug ? get_user_by('slug', $slug) : null;
+$user = null;
+
+if ($slug) {
+    // Versuche zuerst als numerische ID
+    if (is_numeric($slug)) {
+        $user = get_user_by('id', (int) $slug);
+    }
+    // Falls nicht gefunden oder nicht numerisch, versuche als Slug
+    if (!$user) {
+        $user = get_user_by('slug', $slug);
+    }
+}
 
 if (!$user) {
     status_header(404);
@@ -25,12 +36,7 @@ if ($public_profile !== '1') {
     exit;
 }
 
-$first_name = (string) get_user_meta($user->ID, 'first_name', true);
-$last_name = (string) get_user_meta($user->ID, 'last_name', true);
-$display_name = trim($first_name . ' ' . $last_name);
-if ($display_name === '') {
-    $display_name = $user->display_name;
-}
+$display_name = $user->display_name;
 
 $banner_url = (string) get_user_meta($user->ID, Vereinsverwaltung_Plugin::META_USER_BANNER, true);
 $banner_id = (int) get_user_meta($user->ID, Vereinsverwaltung_Plugin::META_USER_BANNER_ID, true);
