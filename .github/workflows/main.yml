@@ -19,9 +19,9 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       
-      - name: Create ZIP file
+      - name: Create ZIP with top-level folder
         run: |
-          zip -r h2-vereinsverwaltung-${{ steps.version.outputs.VERSION }}.zip *
+          git archive --format=zip --prefix=h2-vereinsverwaltung/ -o "h2-vereinsverwaltung-${{ steps.version.outputs.VERSION }}.zip" HEAD
       
       - name: Upload Release Asset
         env:
