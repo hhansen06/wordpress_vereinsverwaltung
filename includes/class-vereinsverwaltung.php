@@ -64,6 +64,9 @@ final class Vereinsverwaltung_Plugin
         add_action('personal_options_update', [$this, 'save_user_contact_fields']);
         add_action('edit_user_profile_update', [$this, 'save_user_contact_fields']);
 
+        add_action('admin_print_footer_scripts-profile.php', [$this, 'add_display_name_option_script']);
+        add_action('admin_print_footer_scripts-user-edit.php', [$this, 'add_display_name_option_script']);
+
         add_action('init', [$this, 'register_profile_rewrite']);
         add_filter('query_vars', [$this, 'register_profile_query_var']);
         add_filter('template_include', [$this, 'load_profile_template']);
@@ -1699,8 +1702,7 @@ final class Vereinsverwaltung_Plugin
         foreach ($users as $user) {
             $avatar = get_avatar($user->ID, 96);
             $name = esc_html($user->display_name);
-            $slug = $user->user_nicename ? $user->user_nicename : $user->ID;
-            $url = esc_url(home_url('/user/' . $slug));
+            $url = esc_url(home_url('/user/' . $user->ID));
 
             $items .= '<a class="vv-buehne-card" href="' . $url . '">'
                 . '<div class="vv-buehne-avatar">' . $avatar . '</div>'
@@ -2097,5 +2099,76 @@ final class Vereinsverwaltung_Plugin
             echo '<li>' . esc_html($label) . ($ort ? ' (' . esc_html($ort) . ')' : '') . '</li>';
         }
         echo '</ul>';
+    }
+
+    public function add_display_name_option_script(): void
+    {
+        $user_id = 0;
+        if (isset($_GET['user_id'])) {
+            $user_id = (int) $_GET['user_id'];
+        } else {
+            $user_id = get_current_user_id();
+        }
+
+        if (!$user_id) {
+            return;
+        }
+
+        $first_name = (string) get_user_meta($user_id, 'first_name', true);
+        $last_name = (string) get_user_meta($user_id, 'last_name', true);
+
+        if (!$first_name || !$last_name) {
+            return;
+        }
+
+        $last_initial = mb_substr($last_name, 0, 1);
+        $display_variant = $first_name . ' ' . $last_initial . '.';
+
+        ?>
+        <script>
+        (function($) {
+            $(document).ready(function() {
+                var $displayNameSelect = $('#display_name');
+                if ($displayNameSelect.length) {
+                    var variant = <?php echo json_encode($display_variant); ?>;
+                    var exists = false;
+                    
+                    $displayNameSelect.find('option').each(function() {
+                        if ($(this).val() === variant) {
+                            exists = true;
+                            return false;
+                        }
+                    });
+                    
+                    if (!exists) {
+                        $displayNameSelect.append($('<option></option>').attr('value', variant).text(variant));
+                    }
+                }
+                
+                // Bei Änderungen von Vorname/Nachname die Option aktualisieren
+                $('#first_name, #last_name').on('change keyup', function() {
+                    var firstName = $('#first_name').val().trim();
+                    var lastName = $('#last_name').val().trim();
+                    
+                    if (firstName && lastName) {
+                        var lastInitial = lastName.charAt(0);
+                        var newVariant = firstName + ' ' + lastInitial + '.';
+                        
+                        var $displayNameSelect = $('#display_name');
+                        var $existingOption = $displayNameSelect.find('option[value^="' + firstName + ' "]').filter(function() {
+                            return /^.+ [A-Z]\.$/.test($(this).val());
+                        });
+                        
+                        if ($existingOption.length) {
+                            $existingOption.val(newVariant).text(newVariant);
+                        } else {
+                            $displayNameSelect.append($('<option></option>').attr('value', newVariant).text(newVariant));
+                        }
+                    }
+                });
+            });
+        })(jQuery);
+        </script>
+        <?php
     }
 }
