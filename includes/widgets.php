@@ -57,16 +57,31 @@ class VV_Termine_Widget extends WP_Widget
                 $date_obj = DateTime::createFromFormat('Y-m-d', $datum_raw);
                 $datum = $date_obj ? $date_obj->format('d.m.Y') : $datum_raw;
             }
+            $ort = esc_html($termin['ort'] ?? '');
             $link = !empty($termin['link']) ? esc_url($termin['link']) : '';
 
-            $label = trim(($datum ? $datum . ' - ' : '') . $name);
-            $label = esc_html($label);
+            $details = [];
+            if ($datum) {
+                $details[] = $datum;
+            }
+            if ($ort) {
+                $details[] = $ort;
+            }
+            $details_text = implode(' - ', $details);
 
             echo '<li>';
             if ($link) {
-                echo '<a href="' . $link . '">' . $label . '</a>';
+                echo '<a href="' . $link . '">';
+                echo '<strong>' . $name . '</strong>';
+                if ($details_text) {
+                    echo '<br><small>' . esc_html($details_text) . '</small>';
+                }
+                echo '</a>';
             } else {
-                echo $label;
+                echo '<strong>' . $name . '</strong>';
+                if ($details_text) {
+                    echo '<br><small>' . esc_html($details_text) . '</small>';
+                }
             }
             echo '</li>';
         }
