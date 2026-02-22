@@ -663,6 +663,13 @@ final class Vereinsverwaltung_Plugin
                         <td><input name="datum" id="vv_termin_datum" type="date" required
                                 value="<?php echo esc_attr($edit_termin['datum'] ?? ''); ?>" /></td>
                     </tr>
+                    <tr>
+                        <th scope="row"><label for="vv_termin_extern">Extern</label></th>
+                        <td>
+                            <input type="checkbox" name="extern" id="vv_termin_extern" value="1" <?php checked($edit_termin['extern'] ?? false, true); ?> />
+                            <label for="vv_termin_extern">Termin ist ein externer Termin</label>
+                        </td>
+                    </tr>
                 </table>
                 <?php submit_button($edit_termin ? 'Termin speichern' : 'Termin hinzufügen'); ?>
             </form>
@@ -677,13 +684,14 @@ final class Vereinsverwaltung_Plugin
                         <th>Link</th>
                         <th>Text</th>
                         <th>Datum</th>
+                        <th>Extern</th>
                         <th>Aktion</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($termine)): ?>
                         <tr>
-                            <td colspan="7">Noch keine Termine angelegt.</td>
+                            <td colspan="8">Noch keine Termine angelegt.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($termine as $termin): ?>
@@ -700,6 +708,7 @@ final class Vereinsverwaltung_Plugin
                                 </td>
                                 <td><?php echo esc_html($termin['text']); ?></td>
                                 <td><?php echo esc_html($termin['datum']); ?></td>
+                                <td><?php echo !empty($termin['extern']) ? 'Ja' : 'Nein'; ?></td>
                                 <td>
                                     <a class="button button-secondary"
                                         href="<?php echo esc_url(admin_url('admin.php?page=vereinsverwaltung-termine&edit_termin=' . $termin['id'])); ?>">Bearbeiten</a>
@@ -1260,6 +1269,7 @@ final class Vereinsverwaltung_Plugin
         $link = isset($_POST['link']) ? esc_url_raw(wp_unslash($_POST['link'])) : '';
         $text = isset($_POST['text']) ? sanitize_textarea_field(wp_unslash($_POST['text'])) : '';
         $datum = isset($_POST['datum']) ? sanitize_text_field(wp_unslash($_POST['datum'])) : '';
+        $extern = isset($_POST['extern']) && $_POST['extern'] === '1';
 
         if (!$name || !$spart_id || !$ort || !$datum) {
             $this->redirect_back();
@@ -1288,6 +1298,7 @@ final class Vereinsverwaltung_Plugin
             'link' => $link,
             'text' => $text,
             'datum' => $datum,
+            'extern' => $extern,
         ];
 
         update_option(self::OPT_TERMINE, $termine, false);
@@ -1306,6 +1317,7 @@ final class Vereinsverwaltung_Plugin
         $link = isset($_POST['link']) ? esc_url_raw(wp_unslash($_POST['link'])) : '';
         $text = isset($_POST['text']) ? sanitize_textarea_field(wp_unslash($_POST['text'])) : '';
         $datum = isset($_POST['datum']) ? sanitize_text_field(wp_unslash($_POST['datum'])) : '';
+        $extern = isset($_POST['extern']) && $_POST['extern'] === '1';
 
         if (!$id || !$name || !$spart_id || !$ort || !$datum) {
             $this->redirect_back();
@@ -1334,6 +1346,7 @@ final class Vereinsverwaltung_Plugin
                 $termin['link'] = $link;
                 $termin['text'] = $text;
                 $termin['datum'] = $datum;
+                $termin['extern'] = $extern;
                 break;
             }
         }
@@ -1538,6 +1551,7 @@ final class Vereinsverwaltung_Plugin
     {
         $atts = shortcode_atts([
             'sparte' => '',
+            'extern' => '',
         ], $atts, 'vv_termine_tabelle');
 
         $termine = $this->get_termine();
@@ -1545,6 +1559,14 @@ final class Vereinsverwaltung_Plugin
         if ($spart_id) {
             $termine = array_values(array_filter($termine, function ($termin) use ($spart_id) {
                 return ($termin['spart_id'] ?? '') === $spart_id;
+            }));
+        }
+
+        if ($atts['extern'] !== '') {
+            $filter_extern = filter_var($atts['extern'], FILTER_VALIDATE_BOOLEAN);
+            $termine = array_values(array_filter($termine, function ($termin) use ($filter_extern) {
+                $is_extern = !empty($termin['extern']);
+                return $is_extern === $filter_extern;
             }));
         }
 
