@@ -74,6 +74,8 @@ final class Vereinsverwaltung_Plugin
 
         add_action('wp_dashboard_setup', [$this, 'hide_wp_events_dashboard_widget'], 999);
         add_action('wp_dashboard_setup', [$this, 'register_termine_dashboard_widget']);
+
+        add_action('rest_api_init', [$this, 'register_rest_routes']);
     }
 
     public function register_settings_pages(): void
@@ -2099,6 +2101,107 @@ final class Vereinsverwaltung_Plugin
             echo '<li>' . esc_html($label) . ($ort ? ' (' . esc_html($ort) . ')' : '') . '</li>';
         }
         echo '</ul>';
+    }
+
+    public function register_rest_routes(): void
+    {
+        register_rest_route('vereinsverwaltung/v1', '/ansprechpartner', [
+            'methods' => 'GET',
+            'callback' => [$this, 'rest_get_ansprechpartner'],
+            'permission_callback' => '__return_true',
+        ]);
+
+        register_rest_route('vereinsverwaltung/v1', '/ansprechpartner/(?P<sparte>[^/]+)', [
+            'methods' => 'GET',
+            'callback' => [$this, 'rest_get_ansprechpartner_by_sparte'],
+            'permission_callback' => '__return_true',
+        ]);
+
+        register_rest_route('vereinsverwaltung/v1', '/sparten', [
+            'methods' => 'GET',
+            'callback' => [$this, 'rest_get_sparten'],
+            'permission_callback' => '__return_true',
+        ]);
+    }
+
+    public function rest_get_ansprechpartner(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $ansprechpartner = $this->get_ansprechpartner();
+        $formatted_data = $this->format_ansprechpartner_data($ansprechpartner);
+
+        return new \WP_REST_Response($formatted_data, 200);
+    }
+
+    public function rest_get_ansprechpartner_by_sparte(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $sparte = $request->get_param('sparte');
+        $spart_id = $this->resolve_sparte_identifier($sparte);
+
+        if (!$spart_id) {
+            return new \WP_REST_Response(
+                [
+                    'error' => 'Sparte nicht gefunden',
+                    'requested' => $sparte
+                ],
+                404
+            );
+        }
+
+        $ansprechpartner = $this->get_ansprechpartner();
+        $filtered = array_filter($ansprechpartner, function ($entry) use ($spart_id) {
+            return ($entry['spart_id'] ?? '') === $spart_id;
+        });
+
+        $formatted_data = $this->format_ansprechpartner_data($filtered);
+
+        return new \WP_REST_Response($formatted_data, 200);
+    }
+
+    public function rest_get_sparten(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $sparten = $this->sort_by_name($this->get_sparten());
+        $formatted_data = array_map(function ($spart) {
+            return [
+                'id' => $spart['id'] ?? '',
+                'name' => $spart['name'] ?? '',
+            ];
+        }, $sparten);
+
+        return new \WP_REST_Response($formatted_data, 200);
+    }
+
+    private function format_ansprechpartner_data(array $ansprechpartner): array
+    {
+        $sparten = $this->get_sparten();
+        $sparten_map = [];
+        foreach ($sparten as $spart) {
+            $sparten_map[$spart['id'] ?? ''] = $spart['name'] ?? '';
+        }
+
+        $formatted_data = [];
+        foreach ($ansprechpartner as $entry) {
+            $user_id = (int) ($entry['user_id'] ?? 0);
+            $user = $user_id ? get_user_by('id', $user_id) : null;
+            $name = $user ? $user->display_name : ($entry['user_label'] ?? '');
+            $email = $user ? $user->user_email : '';
+            $phone = $user_id ? (string) get_user_meta($user_id, self::META_USER_PHONE, true) : '';
+            $address = $user_id ? (string) get_user_meta($user_id, self::META_USER_ADDRESS, true) : '';
+            $spart_id = $entry['spart_id'] ?? '';
+            $avatar_url = $user_id ? get_avatar_url($user_id, ['size' => 96]) : '';
+
+            $formatted_data[] = [
+                'name' => $name,
+                'funktion' => $entry['funktion_label'] ?? '',
+                'email' => $email,
+                'phone' => $phone,
+                'address' => $address,
+                'sparte_id' => $spart_id,
+                'sparte_name' => $sparten_map[$spart_id] ?? '',
+                'avatar_url' => $avatar_url,
+            ];
+        }
+
+        return $formatted_data;
     }
 
     public function add_display_name_option_script(): void
